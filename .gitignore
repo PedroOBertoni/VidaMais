@@ -1,0 +1,16 @@
+# Credenciais e arquivos locais
+frontEnd/.env
+backEnd/.env
+frontEnd/.signing/
+*.jks
+*.keystore
+
+# Dependências e artefatos
+node_modules/
+frontEnd/android/.gradle/
+frontEnd/android/app/build/
+frontEnd/android/build/
+frontEnd/dist/
+frontEnd/dist-web/
+frontEnd/artifacts/
+*.log

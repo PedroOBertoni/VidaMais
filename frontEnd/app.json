@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Vida+",
+    "slug": "vida-mais",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "scheme": "vidamais",
+    "ios": {
+      "bundleIdentifier": "br.com.vidamais.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Fotografar embalagens e bulas para reconhecer o texto."
+      }
+    },
+    "android": {
+      "package": "br.com.vidamais.app"
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-image-picker", {
+        "cameraPermission": "Fotografar embalagens e bulas para reconhecer o texto.",
+        "photosPermission": false,
+        "microphonePermission": false
+      }],
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": false
+        }
+      ]
+    ]
+  }
+}

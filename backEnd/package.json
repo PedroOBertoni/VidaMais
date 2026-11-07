@@ -1,0 +1,11 @@
+{
+  "name": "vidamais-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Banco Supabase e verificação da API do VidaMais",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test:integracao": "node --env-file=.env tests/integracao.mjs"
+  }
+}

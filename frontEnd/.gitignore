@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+dist-web/
+test-results/
+playwright-report/
+web-build/
+.env
+.env.local
+.signing/
+android/.kotlin/
+artifacts/
+*.log
+.DS_Store
