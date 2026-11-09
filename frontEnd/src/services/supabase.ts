@@ -16,7 +16,9 @@ export const supabase =
             const cancelar = () => controller.abort();
             if (init?.signal?.aborted) controller.abort();
             init?.signal?.addEventListener("abort", cancelar);
-            const limite = setTimeout(cancelar, 12000);
+            const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+            const isGeminiVision = requestUrl.includes("/functions/v1/analisar-validade");
+            const limite = setTimeout(cancelar, isGeminiVision ? 38_000 : 12_000);
             try { return await fetch(input, { ...init, signal: controller.signal }); }
             finally {
               clearTimeout(limite);

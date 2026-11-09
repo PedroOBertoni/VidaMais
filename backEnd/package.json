@@ -6,6 +6,6 @@
   "description": "Banco Supabase e verificação da API do VidaMais",
   "engines": { "node": ">=22" },
   "scripts": {
-    "test:integracao": "node --env-file=.env tests/integracao.mjs"
+    "test:integracao": "node --env-file-if-exists=../frontEnd/.env --env-file-if-exists=.env tests/integracao.mjs"
   }
 }

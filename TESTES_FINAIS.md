@@ -1,50 +1,56 @@
-# Testes finais do Vida+
+# Validação final do Vida+ — apresentação em 11/11/2026
 
-Este roteiro separa verificações automatizadas locais dos passos que dependem de Android físico ou projeto Supabase. Os itens dependentes estão **pendentes** até serem executados no ambiente de demonstração.
+Atualizado em 08/11/2026. Marque os itens do aparelho apenas durante o ensaio real; testes automatizados não comprovam o comportamento em smartphone.
 
-## Automatizados no projeto
+## Testes automatizados aprovados
 
-- [x] `npm run typecheck` em `frontEnd` — passou em 07/11/2026.
-- [x] `npm test -- --watch=false` em `frontEnd` — 29 testes passaram em quatro suítes em 07/11/2026.
-- [x] `npm run build:web:test` — export web passou em 07/11/2026.
-- [x] `npx expo-doctor` em `frontEnd` — 16/18 verificações passaram; as duas observações restantes estão registradas abaixo.
-- [ ] Playwright offline — a asserção do cenário passou, mas o processo de teste não terminou sozinho neste ambiente e precisou ser interrompido; não contar como execução completa.
-- [ ] Com projeto Supabase configurado, executar `npm run test:integracao` em `backEnd`.
-- [x] `npm run build:apk` — release ARM64 gerado em 07/11/2026; assinatura verificada e Manifest conferido (câmera/rede, sem permissões de armazenamento externo). Recompilar após alterações futuras.
+- [x] `frontEnd`: `npm run typecheck` — aprovado em 08/11/2026.
+- [x] `frontEnd`: `npm test -- --watch=false` — 52 testes em 6 suítes aprovados em 08/11/2026; inclui parser de datas, recorte/rotações com dependências injetadas, conflitos e fluxos OCR anteriores.
+- [x] `frontEnd`: `npm run build:web:test` — exportação web concluída em 08/11/2026.
+- [x] `frontEnd`: `npx expo-doctor` — 16/18 verificações aprovadas (2 ressalvas conhecidas), em 08/11/2026.
+- [x] `frontEnd`: `npm run build:apk` — release Android compatível com ARM64 gerado e validado em 08/11/2026; fingerprint igual ao APK anterior/keystore preservado.
 
-O Expo Doctor reportou que o projeto tem pastas nativas Android/iOS junto com campos nativos no `app.json`; os arquivos em `android/` são mantidos manualmente e não se executa prebuild automático. Também classificou `@react-native-ml-kit/text-recognition` como não validado na New Architecture; essa arquitetura está desativada no app Android.
+O Expo Doctor apontou que o projeto mantém pastas nativas Android/iOS junto com campos nativos no `app.json`; não execute prebuild automático. Também classificou `@react-native-ml-kit/text-recognition` como não testado na New Architecture. A New Architecture está desativada no app Android.
 
-Não trate testes mockados como prova de integração real.
+O APK inclui o bundle Supabase público, 15 bibliotecas nativas arm64, ML Kit e ImageManipulator. Assinatura validada; permissões INTERNET e CAMERA presentes, sem acesso amplo de leitura da galeria. Cópia anterior: `frontEnd/artifacts/VidaMais-antes-correcao-validade.apk`.
 
-## Android físico — pendente de execução no aparelho
+## Supabase real — backend aprovado
 
-- [ ] Instalar o APK e abrir o Vida+.
-- [ ] Cadastrar manualmente medicamento com data válida; conferir mensagem de sucesso.
-- [ ] Fotografar uma embalagem real e conceder permissão de câmera.
-- [ ] Conferir o texto OCR reconhecido; fotografar frente e lateral se necessário.
-- [ ] Confirmar que nome/laboratório/validade sugeridos precisam de revisão e corrigir um campo.
-- [ ] Testar validade apenas em mês/ano: o app sugere o último dia do mês e informa que deve ser confirmado.
-- [ ] Fotografar texto legível de bula e conferir que foi copiado para Observações para revisão.
-- [ ] Cancelar a câmera e confirmar que a tela continua utilizável.
-- [ ] Negar permissão da câmera e confirmar que há mensagem e o cadastro manual continua disponível.
-- [ ] Salvar e conferir no detalhe texto OCR, horário da leitura e campos revisados.
-- [ ] Fechar completamente e reabrir o app; confirmar persistência no SQLite.
-- [ ] Pesquisar por nome e laboratório; filtrar válidos, próximos e vencidos.
-- [ ] Editar e excluir um registro.
+- [x] A API Supabase respondeu na URL raiz corrigida; a URL configurada antes incluía `/rest/v1`, que foi removido sem alterar a chave publishable.
+- [x] Uma consulta sem sessão foi negada com HTTP 401 / `42501`, comportamento esperado para RLS e permissões da tabela.
+- [x] A rota `medicamentos` e as colunas usadas pelo app são reconhecidas pelo cache da API; uma coluna propositalmente inválida retornou erro de coluna inexistente.
+- [x] Duas sessões anônimas foram criadas. CRUD real passou: INSERT, SELECT, upsert sem duplicação, PATCH e DELETE.
+- [x] Todos os campos do medicamento, `texto_ocr` e `leitura_em` persistiram no cadastro e na consulta.
+- [x] Constraints de nome, validade finita, `sync_id` imutável e proprietário automático passaram; `created_at` foi preservado e `updated_at` atualizado pelo trigger.
+- [x] RLS isolou as sessões: a segunda não leu, atualizou nem excluiu o registro da primeira; proprietário forjado também foi recusado.
+- [x] A limpeza removeu os registros de teste. As duas contas anônimas de teste permanecem em Authentication > Users; tokens não foram salvos.
+- [x] `npm run test:integracao` usa o `.env` público do frontend e concluiu sem alterar dados preexistentes.
 
-## SQLite offline e Supabase — pendentes de configuração e execução
+Não foi aplicado SQL ao banco remoto. O endpoint reconhece a tabela e todos os campos; upsert, unicidade, triggers, constraints e políticas foram validados por comportamento real. O teste da API não valida o app SQLite e Supabase em conjunto no aparelho.
 
-- [ ] Desativar internet e cadastrar medicamento.
-- [ ] Confirmar que o registro fica no SQLite e aparece como pendente.
-- [ ] Fechar e reabrir sem internet; confirmar medicamento e OCR preservados.
-- [ ] Reativar internet e sincronizar.
-- [ ] Confirmar no Dashboard que o registro pertence à sessão do aparelho.
-- [ ] Confirmar `texto_ocr` e `leitura_em` no banco remoto.
-- [ ] Editar o registro, sincronizar e conferir a mesma linha atualizada.
-- [ ] Excluir o registro, sincronizar e confirmar remoção remota.
-- [ ] Testar duas sessões diferentes e verificar que uma não enxerga os dados da outra.
-- [ ] Simular perda temporária de rede durante sincronização; confirmar que os itens locais continuam pendentes e podem ser enviados novamente.
+## Smartphone Android — pendente
 
-## Evidência registrada nesta revisão
+A análise de causa confirmada/hipóteses, os formatos de data e os limites do pré-processamento estão em [OCR_VALIDADE_INVESTIGACAO.md](frontEnd/OCR_VALIDADE_INVESTIGACAO.md).
 
-Nenhuma execução de testes, compilação ou uso de aparelho é presumida por este checklist. Preencha os itens automatizados e marque os testes físicos/remotos somente após executá-los. A integração real de OCR exige APK nativo e câmera; a sincronização real exige projeto Supabase configurado.
+O `adb` não conseguiu iniciar o daemon e nenhum aparelho foi detectado nesta revisão. A acurácia visual das datas e as coordenadas do recorte continuam sem comprovação física. Executar no dispositivo antes da apresentação:
+
+- [ ] Instalar `frontEnd/artifacts/VidaMais.apk` (release revisado com seleção de imagens) e abrir o app.
+- [ ] Cadastrar medicamento manualmente com nome e validade; fechar/reabrir o app e conferir que continua salvo.
+- [ ] Editar e excluir um medicamento manualmente.
+- [ ] Abrir o cadastro por câmera e aceitar a permissão.
+- [ ] No modo **Ler validade e lote**, repetir o teste com domperidona 10 mg Eurofarma: fotografar a área inferior, analisar, desenhar recorte na impressão dot-matrix se faltar validade e confirmar a data e lote contra a caixa. O fluxo tenta o original antes do recorte e das rotações.
+- [ ] Adicionar fotos da câmera e da galeria na mesma sessão; selecionar várias imagens, adicionar mais depois e verificar que duplicatas identificáveis são ignoradas.
+- [ ] Cancelar o seletor da galeria e negar a permissão da câmera; confirmar que o cadastro segue utilizável.
+- [ ] Fotografar embalagem real; revisar nome, laboratório e validade sugeridos antes de salvar; editar manualmente um campo e confirmar que nova análise não o sobrescreve.
+- [ ] Selecionar imagens de bula e revisar as sugestões estruturadas para indicação, contraindicações, posologia, efeitos adversos e precauções; conferir os textos originais por imagem.
+- [ ] Confirmar que uma imagem com falha não descarta os resultados das outras e que seja possível repetir apenas a imagem que falhou.
+- [ ] Conferir no detalhe `texto_ocr` e horário `leitura_em` após salvar.
+- [ ] Com internet desligada, cadastrar e editar localmente; confirmar status pendente e persistência após reabrir.
+- [ ] Restaurar internet; sincronizar e conferir o mesmo `sync_id` no Supabase, sem duplicação.
+- [ ] Excluir localmente, sincronizar e confirmar exclusão remota.
+- [ ] Testar duas instalações/sessões; confirmar que cada uma só consulta os próprios registros.
+- [ ] Interromper a rede durante sincronização; confirmar que registros pendentes permanecem no SQLite e são enviados novamente depois.
+
+## Configuração manual pendente
+
+- [ ] Fazer todos os testes físicos acima. Não marcar OCR, persistência SQLite ou sincronização real como aprovados antes dessas verificações.

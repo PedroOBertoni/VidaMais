@@ -6,6 +6,5 @@ export async function reconhecerTexto(uri: string): Promise<string> {
   }
   const { default: TextRecognition } = await import("@react-native-ml-kit/text-recognition");
   const resultado = await TextRecognition.recognize(uri);
-  if (!resultado.text.trim()) throw new Error("Nenhum texto legível. Aproxime a embalagem, evite reflexos e fotografe novamente.");
   return resultado.text;
 }

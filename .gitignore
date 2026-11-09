@@ -13,4 +13,5 @@ frontEnd/android/build/
 frontEnd/dist/
 frontEnd/dist-web/
 frontEnd/artifacts/
+supabase/.temp/
 *.log

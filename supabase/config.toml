@@ -1,0 +1,3 @@
+[functions.analisar-validade]
+verify_jwt = true
+

@@ -50,3 +50,20 @@ test("falha remota mantém o medicamento e o OCR pendentes no SQLite", async () 
   expect(banco.marcarSincronizado).not.toHaveBeenCalled();
   expect(banco.salvarMedicamentoRemoto).not.toHaveBeenCalled();
 });
+
+test("propaga exclusões pendentes pelo sync_id e remove a fila após sucesso", async () => {
+  banco.listarExclusoesPendentes.mockResolvedValue([{ sync_id: "exclusao-pendente" }]);
+  banco.listarNaoSincronizados.mockResolvedValue([]);
+  const filtroExclusao = jest.fn(async () => ({ error: null }));
+  const excluirRemoto = jest.fn(() => ({ eq: filtroExclusao }));
+  const range = jest.fn(async () => ({ error: null, data: [] }));
+  const order = jest.fn(() => ({ range }));
+  const select = jest.fn(() => ({ order }));
+  supabase.from.mockReturnValue({ delete: excluirRemoto, select });
+
+  expect((await sincronizar()).ok).toBe(true);
+  expect(supabase.from).toHaveBeenCalledWith("medicamentos");
+  expect(excluirRemoto).toHaveBeenCalledTimes(1);
+  expect(filtroExclusao).toHaveBeenCalledWith("sync_id", "exclusao-pendente");
+  expect(banco.removerExclusaoPendente).toHaveBeenCalledWith("exclusao-pendente");
+});

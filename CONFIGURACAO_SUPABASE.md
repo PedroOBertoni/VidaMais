@@ -97,7 +97,7 @@ O SQL Editor tem privilégios administrativos. Para testar o isolamento, use dua
 5. Confira o registro na tabela e os campos `texto_ocr` e `leitura_em` na consulta acima.
 6. Edite o registro e sincronize; confirme que a mesma linha mudou. Exclua e sincronize; confirme que ela foi removida.
 
-O teste opcional da API cria usuários anônimos e registros temporários. Em `backEnd/.env`, defina `SUPABASE_URL` e `SUPABASE_PUBLIC_KEY` (Publishable ou anon), então execute `npm run test:integracao` dentro de `backEnd`. O teste tenta apagar somente os IDs aleatórios criados naquela execução. Usuários anônimos de teste permanecem em Authentication → Users.
+O teste da API cria duas sessões anônimas e registros temporários. `npm run test:integracao` em `backEnd` carrega automaticamente as variáveis públicas de `frontEnd/.env`; também aceita `SUPABASE_URL` e `SUPABASE_PUBLIC_KEY` em `backEnd/.env`. O teste apaga somente os IDs aleatórios criados naquela execução. As contas anônimas de teste permanecem em Authentication → Users.
 
 ## Opções e segurança
 

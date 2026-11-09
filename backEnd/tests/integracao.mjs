@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 // Usa apenas APIs nativas do Node; não precisa instalar dependências.
-const base = process.env.SUPABASE_URL?.replace(/\/$/, '');
-const chave = process.env.SUPABASE_PUBLIC_KEY;
+const base = (process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL)?.replace(/\/$/, '');
+const chave = process.env.SUPABASE_PUBLIC_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 if (!base || !chave || chave.startsWith('cole_')) {
-  console.error('Preencha SUPABASE_URL e SUPABASE_PUBLIC_KEY em backEnd/.env.');
+  console.error('Configure as variáveis SUPABASE_URL/SUPABASE_PUBLIC_KEY ou EXPO_PUBLIC_SUPABASE_URL/EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.');
   process.exit(1);
 }
 if (chave.startsWith('sb_secret_')) {
@@ -46,7 +46,8 @@ async function requisicao(caminho, { method = 'GET', token, body, prefer } = {})
 }
 
 function sucesso(resposta, etapa) {
-  assert.ok(resposta.ok, `${etapa}: HTTP ${resposta.status}, código ${resposta.data?.code ?? resposta.data?.error_code ?? 'não informado'}. Confira schema.sql e Anonymous Sign-Ins.`);
+  const mensagem = resposta.data?.msg ?? resposta.data?.message ?? resposta.data?.error_description;
+  assert.ok(resposta.ok, `${etapa}: HTTP ${resposta.status}, código ${resposta.data?.code ?? resposta.data?.error_code ?? 'não informado'}${mensagem ? `, mensagem: ${mensagem}` : ''}. Confira schema.sql e Anonymous Sign-Ins.`);
 }
 
 const sessoes = [];
@@ -57,7 +58,7 @@ let falhou = false;
 
 try {
   const acessoPublico = await requisicao(`${tabela}?select=sync_id&limit=1`);
-  assert.ok([401, 403].includes(acessoPublico.status), 'A tabela deve negar leitura sem sessão. Confira as permissões do schema.');
+  assert.ok([401, 403].includes(acessoPublico.status), `A tabela deve negar leitura sem sessão (HTTP ${acessoPublico.status}, código ${acessoPublico.data?.code ?? acessoPublico.data?.error_code ?? 'não informado'}: ${acessoPublico.data?.message ?? 'sem mensagem'}). Confira URL, schema e permissões.`);
   console.log('OK: acesso sem sessão negado.');
 
   for (let i = 0; i < 2; i++) {
@@ -69,35 +70,67 @@ try {
   const [a, b] = sessoes;
   console.log('OK: duas sessões anônimas criadas.');
 
-  const registro = { sync_id: ids[0], nome: 'Teste de integração VidaMais', validade: '2030-12-31', observacoes: 'Registro temporário de teste automatizado.', texto_ocr: 'Teste OCR VAL 12/2030', leitura_em: new Date().toISOString() };
+  const registro = {
+    sync_id: ids[0],
+    nome: 'Teste de integração VidaMais',
+    laboratorio: 'Laboratório temporário de teste',
+    validade: '2030-12-31',
+    indicacao: 'Indicação de teste',
+    contraindicacoes: 'Contraindicação de teste',
+    posologia: 'Uma dose de teste',
+    efeitos_adversos: 'Efeito adverso de teste',
+    precaucoes: 'Precaução de teste',
+    observacoes: 'Registro temporário de teste automatizado.',
+    texto_ocr: 'Teste OCR VAL 12/2030',
+    leitura_em: new Date().toISOString(),
+  };
   const criar = await requisicao(tabela, { method: 'POST', token: a.token, body: registro, prefer: 'return=representation' });
   sucesso(criar, 'Cadastro');
   assert.equal(criar.data?.[0]?.user_id, a.id, 'O proprietário deve vir da sessão.');
   const criado = criar.data[0];
-  assert.equal(criado.texto_ocr, registro.texto_ocr, 'O texto OCR deve persistir associado ao medicamento.');
-  assert.equal(criado.leitura_em, registro.leitura_em, 'A data da leitura deve persistir.');
+  for (const campo of ['sync_id', 'nome', 'laboratorio', 'validade', 'indicacao', 'contraindicacoes', 'posologia', 'efeitos_adversos', 'precaucoes', 'observacoes', 'texto_ocr', 'leitura_em']) {
+    assert.equal(criado[campo], registro[campo], `O campo ${campo} deve persistir no cadastro.`);
+  }
   console.log('OK: cadastro e proprietário automático.');
 
+  const registroEditado = { ...registro, nome: 'Teste editado', laboratorio: 'Laboratório revisado', posologia: 'Duas doses de teste' };
   const editar = await requisicao(`${tabela}?on_conflict=sync_id`, {
     method: 'POST', token: a.token,
-    body: { ...registro, nome: 'Teste editado', created_at: '2000-01-01T00:00:00Z', updated_at: '2000-01-01T00:00:00Z' },
+    body: { ...registroEditado, created_at: '2000-01-01T00:00:00Z', updated_at: '2000-01-01T00:00:00Z' },
     prefer: 'resolution=merge-duplicates,return=representation',
   });
   sucesso(editar, 'Upsert');
+  const atualizacao = await requisicao(`${tabela}${filtro}`, {
+    method: 'PATCH', token: a.token,
+    body: { indicacao: 'Indicação atualizada via PATCH', created_at: '2000-01-01T00:00:00Z', updated_at: '2000-01-01T00:00:00Z' },
+    prefer: 'return=representation',
+  });
+  sucesso(atualizacao, 'Atualização PATCH');
+  assert.equal(atualizacao.data?.length, 1, 'O proprietário deve atualizar exatamente o próprio registro.');
+  assert.equal(atualizacao.data[0].created_at, criado.created_at, 'A edição deve preservar created_at.');
+  assert.ok(Date.parse(atualizacao.data[0].updated_at) > Date.parse('2000-01-01'), 'A edição deve atualizar updated_at no servidor.');
+  registroEditado.indicacao = 'Indicação atualizada via PATCH';
   const consulta = await requisicao(`${tabela}${filtro}`, { token: a.token });
   sucesso(consulta, 'Consulta');
   assert.equal(consulta.data.length, 1, 'O upsert não deve duplicar o cadastro.');
-  assert.equal(consulta.data[0].nome, 'Teste editado');
-  assert.equal(consulta.data[0].texto_ocr, registro.texto_ocr);
+  for (const campo of ['sync_id', 'nome', 'laboratorio', 'validade', 'indicacao', 'contraindicacoes', 'posologia', 'efeitos_adversos', 'precaucoes', 'observacoes', 'texto_ocr', 'leitura_em']) {
+    assert.equal(consulta.data[0][campo], registroEditado[campo], `O campo ${campo} deve permanecer compatível no upsert/consulta.`);
+  }
   assert.equal(consulta.data[0].created_at, criado.created_at);
   assert.ok(Date.parse(consulta.data[0].updated_at) > Date.parse('2000-01-01'));
   console.log('OK: edição sem duplicação e timestamps protegidos.');
 
   const invalido = await requisicao(tabela, { method: 'POST', token: a.token, body: { ...registro, sync_id: ids[1], nome: '   ' } });
   assert.equal(invalido.data?.code, '23514', 'Nome vazio deve ser recusado.');
+  const validadeInvalida = await requisicao(tabela, { method: 'POST', token: a.token, body: { ...registro, sync_id: ids[1], validade: 'infinity' } });
+  assert.equal(validadeInvalida.data?.code, '23514', 'Validade infinita deve ser recusada.');
   const forjado = await requisicao(tabela, { method: 'POST', token: a.token, body: { ...registro, sync_id: ids[2], user_id: b.id } });
   assert.equal(forjado.data?.code, '42501', 'Cadastro em nome de outro usuário deve ser recusado.');
-  console.log('OK: validação de nome e bloqueio de proprietário forjado.');
+  const identidadeAlterada = await requisicao(`${tabela}${filtro}`, {
+    method: 'PATCH', token: a.token, body: { sync_id: ids[1] }, prefer: 'return=representation',
+  });
+  assert.equal(identidadeAlterada.data?.code, '23514', 'O sync_id não pode ser alterado depois da inclusão.');
+  console.log('OK: constraints de nome/data/identidade e bloqueio de proprietário forjado.');
 
   const leituraB = await requisicao(`${tabela}${filtro}`, { token: b.token });
   sucesso(leituraB, 'Isolamento de leitura');
@@ -121,7 +154,9 @@ try {
   console.log('OK: exclusão confirmada.');
 } catch (erro) {
   falhou = true;
-  console.error(`FALHA: ${erro.message}`);
+  const causa = erro instanceof Error ? erro.cause : undefined;
+  const codigo = causa && typeof causa === 'object' && 'code' in causa ? ` (${causa.code})` : '';
+  console.error(`FALHA: ${erro.message}${codigo}`);
 } finally {
   // Remove somente os IDs gerados por esta execução, inclusive após falha.
   for (const sessao of sessoes) {

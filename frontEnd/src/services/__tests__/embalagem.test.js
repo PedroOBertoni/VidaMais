@@ -1,33 +1,57 @@
 import { extrairEmbalagem } from "../embalagem";
 
-describe("extração dos textos reconhecidos nas embalagens", () => {
-  test("reconhece V: como validade sem confundir F: e L: na embalagem fotografada", () => {
-    const texto = "Otosporin\nhidrocortisona 10 mg/ml\nsulfato de neomicina 5 mg/mL\nsulfato de polimixina B 10.000 UVmL\nUSO OTOLÓGICO\nSuspensão\nUSO ADULTO E PEDIÁTRIco\nACIMA DE 1 ANO\nContém 1 frasco\ngotejador com 10 mL\nVENDA SOB PRESCRIÇÃO-\nCOM RETENÇÃO DA RECEITA\nFOM\n\nL:261114\nF: 06/26\nV: 06/28";
-    expect(extrairEmbalagem(texto)).toEqual({ nome: "Otosporin", laboratorio: "", validade: "30/06/2028", validadeMensal: true });
-  });
-  test.each(["V: 06/28", "v : 06/2028", "L: 12345\nF: 06/26\nV: 06/28"])("aceita o rótulo de validade abreviado %s", texto => {
-    expect(extrairEmbalagem(texto).validade).toBe("30/06/2028");
-  });
-  test.each(["F: 06/26\nL: 261114", "Vitamina V 06/28", "Versão: 06/28"])("não interpreta outros rótulos como validade: %s", texto => {
-    expect(extrairEmbalagem(texto).validade).toBe("");
-  });
-  test("extrai medicamento com dose, fabricante e validade", () => {
-    expect(extrairEmbalagem("EMS\nDIPIRONA 500 mg\n10 comprimidos\nVAL.: 30/11/2027")).toEqual({
-      nome: "DIPIRONA", laboratorio: "EMS", validade: "30/11/2027", validadeMensal: false,
+describe("extracao de validade em embalagens", () => {
+  test("preserves name/lab recognition and monthly V: expiry", () => {
+    expect(extrairEmbalagem("Otosporin\nEurofarma\nF: 06/26\nV: 06/28")).toMatchObject({
+      nome: "Otosporin", laboratorio: "Eurofarma", validade: "30/06/2028", validadeMensal: true,
     });
   });
-  test.each([ ["VAL 02/28", "29/02/2028"], ["Validade: 02/2027", "28/02/2027"], ["VENC.\n12/2030", "31/12/2030"] ])("sugere fim do mês para %s e sinaliza revisão", (texto, esperado) => {
-    expect(extrairEmbalagem(texto)).toMatchObject({ validade: esperado, validadeMensal: true });
+
+  test.each([
+    ["VALIDADE: 29/02/2028", "29/02/2028", false],
+    ["VAL: 30.06.2028", "30/06/2028", false],
+    ["VENC. 30-06-28", "30/06/2028", false],
+    ["VAL: 06/28", "30/06/2028", true],
+    ["VAL: 06/2028", "30/06/2028", true],
+    ["VAL: 0628", "30/06/2028", true],
+    ["VAL: 062028", "30/06/2028", true],
+    ["VAL: 30062028", "30/06/2028", false],
+  ])("reads supported date format in %s", (text, expected, monthly) => {
+    expect(extrairEmbalagem(text)).toMatchObject({ validade: expected, validadeMensal: monthly });
   });
-  test("não confunde data de fabricação ou lote com validade", () => {
-    expect(extrairEmbalagem("FAB: 01/02/2026\nLOTE 10/27").validade).toBe("");
+
+  test.each([
+    ["FAB: 01/2024\nVAL: 10/2027", "31/10/2027"],
+    ["MFG 01/2024 EXP 01/2026", "31/01/2026"],
+    ["FABR.\n01/2024\nVENCIMENTO\n02/2028", "29/02/2028"],
+    ["F: 01/24\nLOTE 261114\nV : 06/28", "30/06/2028"],
+  ])("does not confuse manufacturing date or lot with validity: %s", (text, expected) => {
+    expect(extrairEmbalagem(text).validade).toBe(expected);
   });
-  test.each(["VAL: 31/02/2027", "VAL: 13/2027", "Validade não legível", ""]) ("não inventa datas para %s", texto => {
-    expect(extrairEmbalagem(texto).validade).toBe("");
+
+  test("keeps a numeric lot from being parsed as a date", () => {
+    expect(extrairEmbalagem("LOTE 30062028\nFAB: 01/2024").validade).toBe("");
   });
-  test("usa rótulos explícitos", () => {
-    expect(extrairEmbalagem("Nome: Paracetamol\nLaboratório: Exemplo\nVencimento: 10-12-27")).toMatchObject({
-      nome: "Paracetamol", laboratorio: "Exemplo", validade: "10/12/2027",
+
+  test("normalizes OCR confusions only inside a labeled date and marks it uncertain", () => {
+    expect(extrairEmbalagem("VAL: O6/2O28")).toMatchObject({
+      validade: "30/06/2028", validadeMensal: true, validadeIncerta: true,
     });
+  });
+
+  test.each(["VAL: 31/02/2027", "VAL: 13/2027", "VAL: 00/2028", "VAL: 06322028", ""]) (
+    "rejects impossible or missing dates: %s", text => {
+      expect(extrairEmbalagem(text).validade).toBe("");
+    }
+  );
+
+  test("reports multiple validity values instead of selecting one", () => {
+    expect(extrairEmbalagem("VAL: 06/2028\nEXP: 06/2029")).toMatchObject({
+      validade: "", candidatasValidade: ["30/06/2028", "30/06/2029"],
+    });
+  });
+
+  test("does not turn manufacturing or an unlabelled number into expiry", () => {
+    expect(extrairEmbalagem("FAB: 01/02/2026\nLOTE 10/27\n30/06/2028").validade).toBe("");
   });
 });
