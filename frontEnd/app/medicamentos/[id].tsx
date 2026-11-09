@@ -8,8 +8,11 @@ import { diasRestantes, formatarData, getStatusValidade, Medicamento } from "../
 import { StatusBadge } from "../../src/components/StatusBadge";
 import { sincronizar } from "../../src/services/sync";
 import { alerta } from "../../src/services/alerta";
+import { useSnackbar } from "../../src/components/SnackbarProvider";
+import { mensagemSucessoMedicamento } from "../../src/services/mensagem-sucesso";
 
 export default function Detalhes() {
+  const { showSnackbar } = useSnackbar();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<Medicamento | null | undefined>(undefined);
   const [erro, setErro] = useState(false);
@@ -30,7 +33,7 @@ export default function Detalhes() {
   const excluir = () => alerta("Excluir medicamento", "Deseja realmente excluir este medicamento?", [
     { text: "Cancelar", style: "cancel" },
     { text: "Excluir", style: "destructive", onPress: async () => {
-      try { await excluirMedicamento(item.id); void sincronizar(); router.back(); }
+      try { await excluirMedicamento(item.id); void sincronizar(); showSnackbar(mensagemSucessoMedicamento("exclusao")); router.back(); }
       catch { alerta("Erro", "Não foi possível excluir o medicamento."); }
     } },
   ]);

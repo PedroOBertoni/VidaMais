@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../src/constants/theme";
 import { initDatabase } from "../src/database/database";
+import { SnackbarProvider } from "../src/components/SnackbarProvider";
 
 export default function Layout() {
   const [estado, setEstado] = useState<"carregando" | "pronto" | "erro">("carregando");
@@ -31,7 +32,7 @@ export default function Layout() {
     </View>;
   }
 
-  return (
+  return <SnackbarProvider>
     <Stack screenOptions={{
       headerStyle: { backgroundColor: colors.card },
       headerTintColor: colors.text,
@@ -45,7 +46,7 @@ export default function Layout() {
       <Stack.Screen name="medicamentos/[id]" options={{ title: "Detalhes" }} />
       <Stack.Screen name="bula/[id]" options={{ title: "Bula" }} />
     </Stack>
-  );
+  </SnackbarProvider>;
 }
 
 const styles = StyleSheet.create({

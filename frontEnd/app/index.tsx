@@ -29,6 +29,7 @@ export default function Home() {
   const vencidos = medicamentos.filter(x => getStatusValidade(x.validade) === "vencido").length;
   const proximos = medicamentos.filter(x => getStatusValidade(x.validade) === "proximo").length;
   const proximosItens = medicamentos.filter(x => getStatusValidade(x.validade) === "proximo").slice(0, 3);
+  const abrirListaMedicamentos = () => router.push("/medicamentos");
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}
@@ -43,7 +44,7 @@ export default function Home() {
       </View>
 
       <View style={styles.stats}>
-        <View style={styles.stat}><Text style={styles.number}>{medicamentos.length}</Text><Text style={styles.label}>Medicamentos</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${medicamentos.length} medicamentos cadastrados`} accessibilityHint="Abre a lista de medicamentos" android_ripple={{ color: colors.primaryLight }} style={({ pressed }) => [styles.stat, pressed && styles.statPressed]} onPress={abrirListaMedicamentos}><Text style={styles.number}>{medicamentos.length}</Text><Text style={styles.label}>Medicamentos</Text></Pressable>
         <View style={styles.stat}><Text style={[styles.number, { color: colors.warning }]}>{proximos}</Text><Text style={styles.label}>Vencendo</Text></View>
         <View style={styles.stat}><Text style={[styles.number, { color: colors.danger }]}>{vencidos}</Text><Text style={styles.label}>Vencidos</Text></View>
       </View>
@@ -59,7 +60,7 @@ export default function Home() {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Próximos do vencimento</Text>
-        <Pressable onPress={() => router.push("/medicamentos")}><Text style={styles.see}>Ver todos</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={abrirListaMedicamentos}><Text style={styles.see}>Ver todos</Text></Pressable>
       </View>
 
       <View style={styles.info}>
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
   logoText: { color: "white", fontSize: 30, fontWeight: "800" },
   stats: { flexDirection: "row", gap: 10, marginBottom: 18 },
   stat: { flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.border },
+  statPressed: { opacity: 0.78 },
   number: { color: colors.primary, fontSize: 24, fontWeight: "900" },
   label: { color: colors.muted, fontSize: 11, marginTop: 4 },
   add: { backgroundColor: colors.primary, borderRadius: 18, padding: 17, flexDirection: "row", alignItems: "center", marginBottom: 28 },

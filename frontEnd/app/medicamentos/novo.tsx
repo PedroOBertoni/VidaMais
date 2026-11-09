@@ -27,6 +27,8 @@ import { sincronizar } from "../../src/services/sync";
 import { alerta } from "../../src/services/alerta";
 import { formatarRelatorioIA, listarTentativasIA, type AiAttempt } from "../../src/services/ai-diagnostics";
 import { converterDataParaISO, formatarData } from "../../src/types/medicamento";
+import { useSnackbar } from "../../src/components/SnackbarProvider";
+import { mensagemSucessoMedicamento } from "../../src/services/mensagem-sucesso";
 
 const campos = [
   ["laboratorio", "Laboratório"],
@@ -39,6 +41,7 @@ const campos = [
 ] as const;
 
 export default function NovoMedicamento() {
+  const { showSnackbar } = useSnackbar();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editando = Boolean(id);
   const [form, setForm] = useState({ nome:"", laboratorio:"", validade:"", indicacao:"", contraindicacoes:"", posologia:"", efeitos_adversos:"", precaucoes:"", observacoes:"", texto_ocr:"", leitura_em:"" });
@@ -368,8 +371,8 @@ export default function NovoMedicamento() {
       if (id) await atualizarMedicamento(Number(id), dados);
       else await inserirMedicamento(dados);
       void sincronizar();
-      const mensagem = `Medicamento ${editando ? "atualizado" : "cadastrado"} neste aparelho. A sincronização será tentada em segundo plano; acompanhe em Cópia online na tela inicial.`;
-      alerta("Sucesso", mensagem, [{ text: "OK", onPress: () => router.back() }]);
+      showSnackbar(mensagemSucessoMedicamento(editando ? "edicao" : "cadastro"));
+      router.back();
     } catch {
       alerta("Erro", "Não foi possível salvar o medicamento.");
     } finally { setSalvando(false); }
