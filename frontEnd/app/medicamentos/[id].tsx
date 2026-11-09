@@ -17,6 +17,8 @@ export default function Detalhes() {
   const [item, setItem] = useState<Medicamento | null | undefined>(undefined);
   const [erro, setErro] = useState(false);
   const [textoOriginalVisivel, setTextoOriginalVisivel] = useState(false);
+  const [confirmacaoExclusaoVisivel, setConfirmacaoExclusaoVisivel] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
   const carregar = useCallback(async () => {
     setErro(false);
     try { setItem(await buscarMedicamento(Number(id))); }
@@ -28,15 +30,26 @@ export default function Detalhes() {
   if (item === undefined) return <View style={styles.center}><Text>Carregando...</Text></View>;
   if (item === null) return <View style={styles.center}><Text>Medicamento não encontrado.</Text></View>;
 
+  const medicamentoId = item.id;
   const status = getStatusValidade(item.validade);
   const dias = diasRestantes(item.validade);
-  const excluir = () => alerta("Excluir medicamento", "Deseja realmente excluir este medicamento?", [
-    { text: "Cancelar", style: "cancel" },
-    { text: "Excluir", style: "destructive", onPress: async () => {
-      try { await excluirMedicamento(item.id); void sincronizar(); showSnackbar(mensagemSucessoMedicamento("exclusao")); router.back(); }
-      catch { alerta("Erro", "Não foi possível excluir o medicamento."); }
-    } },
-  ]);
+  const excluir = () => setConfirmacaoExclusaoVisivel(true);
+  async function confirmarExclusao() {
+    if (excluindo) return;
+    setExcluindo(true);
+    try {
+      await excluirMedicamento(medicamentoId);
+      void sincronizar();
+      setConfirmacaoExclusaoVisivel(false);
+      showSnackbar(mensagemSucessoMedicamento("exclusao"));
+      router.back();
+    } catch {
+      setConfirmacaoExclusaoVisivel(false);
+      alerta("Erro", "Não foi possível excluir o medicamento.");
+    } finally {
+      setExcluindo(false);
+    }
+  }
   const secoes = [["Indicação", item.indicacao], ["Contraindicações", item.contraindicacoes], ["Posologia", item.posologia], ["Efeitos adversos", item.efeitos_adversos], ["Precauções", item.precaucoes], ["Observações", item.observacoes]];
 
   return <>
@@ -76,6 +89,24 @@ export default function Detalhes() {
         <ScrollView style={styles.originalScroll} contentContainerStyle={styles.originalContent}><Text selectable style={styles.body}>{item.texto_ocr}</Text></ScrollView>
       </SafeAreaView>
     </Modal>
+    <Modal visible={confirmacaoExclusaoVisivel} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!excluindo) setConfirmacaoExclusaoVisivel(false); }}>
+      <View style={styles.deleteBackdrop}>
+        <SafeAreaView style={styles.deleteSafe} edges={["top", "bottom"]}>
+          <View style={styles.deleteDialog}>
+            <Text style={styles.deleteTitle}>Excluir medicamento?</Text>
+            <Text style={styles.deleteMessage}>Deseja realmente excluir {item.nome}?</Text>
+            <View style={styles.deleteDialogActions}>
+              <Pressable accessibilityRole="button" disabled={excluindo} style={[styles.cancelDeleteButton, excluindo && styles.dialogButtonDisabled]} onPress={() => setConfirmacaoExclusaoVisivel(false)}>
+                <Text style={styles.deleteDialogButtonText}>Cancelar</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={excluindo} style={[styles.confirmDeleteButton, excluindo && styles.dialogButtonDisabled]} onPress={confirmarExclusao}>
+                <Text style={styles.deleteDialogButtonText}>{excluindo ? "Excluindo..." : "Excluir"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      </View>
+    </Modal>
   </>;
 }
 
@@ -87,5 +118,6 @@ const styles = StyleSheet.create({
   validity: { backgroundColor: colors.card, borderRadius: 18, padding: 18, marginTop: 13, borderWidth: 1, borderColor: colors.border }, validityLabel: { fontSize: 11, fontWeight: "900", color: colors.muted }, date: { fontSize: 22, fontWeight: "900", color: colors.text, marginTop: 4 }, days: { color: colors.warning, fontWeight: "700", marginTop: 3 },
   section: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginTop: 12, borderWidth: 1, borderColor: colors.border }, sectionTitle: { fontWeight: "900", color: colors.text, marginBottom: 7 }, body: { color: colors.muted, lineHeight: 20 },
   originalLink: { alignSelf: "flex-start", paddingVertical: 8, marginTop: 4 }, originalLinkText: { color: colors.primaryDark, fontWeight: "800", textDecorationLine: "underline" }, originalScreen: { flex: 1, backgroundColor: colors.background }, originalHeader: { padding: 20, borderBottomWidth: 1, borderColor: colors.border }, originalClose: { alignSelf: "flex-start", paddingVertical: 8 }, originalScroll: { flex: 1 }, originalContent: { padding: 20, paddingBottom: 36 },
+  deleteBackdrop: { flex: 1, backgroundColor: "rgba(14, 35, 27, 0.5)", justifyContent: "center", paddingHorizontal: 22 }, deleteSafe: { width: "100%" }, deleteDialog: { width: "100%", maxWidth: 420, alignSelf: "center", backgroundColor: colors.card, borderRadius: 24, padding: 22, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 5 }, elevation: 9 }, deleteTitle: { color: colors.primaryDark, fontSize: 21, fontWeight: "900", marginBottom: 10 }, deleteMessage: { color: colors.text, fontSize: 15, lineHeight: 22, marginBottom: 22 }, deleteDialogActions: { flexDirection: "row", gap: 10 }, cancelDeleteButton: { flex: 1, minHeight: 48, borderRadius: 14, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }, confirmDeleteButton: { flex: 1, minHeight: 48, borderRadius: 14, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }, deleteDialogButtonText: { color: "white", fontSize: 14, fontWeight: "900" }, dialogButtonDisabled: { opacity: 0.6 },
   actions: { gap: 10, marginTop: 18 }, primary: { height: 50, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, primaryText: { color: "white", fontWeight: "900" }, secondary: { height: 50, borderRadius: 14, borderWidth: 1, borderColor: colors.primary, alignItems: "center", justifyContent: "center" }, secondaryText: { color: colors.primary, fontWeight: "900" }, delete: { height: 50, borderRadius: 14, alignItems: "center", justifyContent: "center" }, deleteText: { color: colors.danger, fontWeight: "800" },
 });

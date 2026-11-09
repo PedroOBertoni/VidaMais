@@ -36,7 +36,7 @@ export default function Home() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={recarregar} />}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.hello}>Olá! 👋</Text>
+          <Text style={styles.hello}>Olá!</Text>
           <Text style={styles.title}>Vida+</Text>
           <Text style={styles.subtitle}>Cuide dos seus medicamentos.</Text>
         </View>
@@ -79,7 +79,7 @@ export default function Home() {
       )}
 
       <View style={styles.info}>
-        <Text style={styles.infoTitle}>💡 Dica do Vida+</Text>
+        <Text style={styles.infoTitle}>Dica do Vida+</Text>
         <Text style={styles.infoText}>Confira regularmente a validade dos medicamentos e consulte um profissional de saúde em caso de dúvidas.</Text>
       </View>
     </ScrollView>

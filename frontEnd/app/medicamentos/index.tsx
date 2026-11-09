@@ -27,8 +27,8 @@ export default function Medicamentos() {
   return (
     <View style={styles.screen}>
       <View style={styles.top}>
-        <TextInput accessibilityLabel="Buscar medicamento" value={busca} onChangeText={setBusca} placeholder="🔎  Buscar medicamento..." placeholderTextColor={colors.muted} style={styles.search} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Cadastrar medicamento" style={styles.new} onPress={() => router.push("/medicamentos/novo")}><Text style={styles.newText}>＋</Text></Pressable>
+        <TextInput accessibilityLabel="Buscar medicamento" value={busca} onChangeText={setBusca} placeholder="Buscar medicamento..." placeholderTextColor={colors.muted} style={styles.search} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Adicionar medicamento" style={styles.new} onPress={() => router.push("/medicamentos/novo")}><Text style={styles.newText}>+</Text></Pressable>
       </View>
       {!!erro && <Pressable accessibilityRole="button" onPress={recarregar} style={styles.errorBox}><Text style={styles.errorText}>{erro} Toque para tentar novamente.</Text></Pressable>}
       <ScrollView horizontal style={{ flexGrow: 0 }} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
@@ -44,10 +44,10 @@ export default function Medicamentos() {
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  top: { flexDirection: "row", padding: 16, gap: 10 },
+  top: { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },
   search: { flex: 1, backgroundColor: colors.card, borderRadius: 14, paddingHorizontal: 15, height: 48, color: colors.text, borderWidth: 1, borderColor: colors.border },
-  new: { width: 48, height: 48, backgroundColor: colors.primary, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  newText: { color: "white", fontSize: 28 },
+  new: { width: 52, height: 52, backgroundColor: colors.primary, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  newText: { color: "white", fontSize: 30, fontWeight: "800" },
   filters: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   chip: { borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },

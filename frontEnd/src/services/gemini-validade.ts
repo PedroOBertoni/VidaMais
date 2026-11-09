@@ -43,16 +43,16 @@ export function validarRespostaGemini(value: unknown): RespostaGemini {
   return value as RespostaGemini;
 }
 
-export function aplicarGeminiConfirmado<T extends { validade: string; texto_ocr: string; leitura_em: string }>(
+export function aplicarResultadoGemini<T extends { validade: string; texto_ocr: string; leitura_em: string }>(
   form: T,
   suggestion: GeminiValidade,
   validadeProtegida: boolean,
 ) {
   const date = suggestion.validade;
-  if (date && !converterDataParaISO(date)) throw new Error("Corrija a validade sugerida antes de confirmar.");
+  if (date && !converterDataParaISO(date)) throw new Error("Corrija a validade sugerida antes de aplicá-la ao cadastro.");
   const atual = form.validade.trim();
   const preencherValidade = Boolean(date) && (!atual || !validadeProtegida);
-  const linhas: string[] = ["[Gemini Vision — confirmado pelo usuário]", ...suggestion.transcricao_linhas];
+  const linhas: string[] = ["[Gemini Vision — resultado da análise]", ...suggestion.transcricao_linhas];
   if (suggestion.lote) linhas.push(`Lote: ${suggestion.lote}`);
   if (suggestion.fabricacao) linhas.push(`Fabricação: ${suggestion.fabricacao}`);
   if (date) linhas.push(`Validade: ${date}`);

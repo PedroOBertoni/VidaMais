@@ -48,7 +48,7 @@ export function combinarResultadosGemini(resultados: ResultadoGeminiImagem[]): G
     const values = [...new Set(dados.map(item => item[field]).filter((value): value is string => Boolean(value)))];
     if (values.length > 1) {
       incertos.add(field);
-      avisos.push(`As imagens têm valores diferentes para ${field}; confira antes de confirmar.`);
+      avisos.push(`As imagens têm valores diferentes para ${field}; confira manualmente no cadastro e no texto OCR.`);
       return null;
     }
     return values[0] ?? null;

@@ -7,7 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { CropRegionModal } from "../../src/components/CropRegionModal";
 import { reconhecerTexto } from "../../src/services/ocr";
 import { prepararImagemParaGemini, invocarGemini } from "../../src/services/gemini-api";
-import { aplicarGeminiConfirmado, type GeminiValidade } from "../../src/services/gemini-validade";
+import { aplicarResultadoGemini } from "../../src/services/gemini-validade";
 import { analisarGeminiEmLote, combinarResultadosGemini, type ResultadoGeminiImagem } from "../../src/services/gemini-batch";
 import { consentimentoPendente, lerConsentimentoGemini, revogarConsentimentoGemini, salvarConsentimentoGemini } from "../../src/services/gemini-consent";
 import { tecnologiaOCR } from "../../src/services/ocr-routing";
@@ -57,9 +57,7 @@ export default function NovoMedicamento() {
   const [textoOCRGemini, setTextoOCRGemini] = useState("");
   const camposManuais = useRef(new Set<string>());
   const [validadeLocalConfiavel, setValidadeLocalConfiavel] = useState(false);
-  const [iaDraft, setIaDraft] = useState<GeminiValidade | null>(null);
   const [iaErro, setIaErro] = useState("");
-  const [iaResumo, setIaResumo] = useState("");
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
   const [imagemParaRecorte, setImagemParaRecorte] = useState<string | null>(null);
   const [progressoOCR, setProgressoOCR] = useState({ concluidas: 0, total: 0 });
@@ -188,9 +186,7 @@ export default function NovoMedicamento() {
     setDestinoOCR(destino);
     setImagemPreview(null);
     setAvisoLeitura("");
-    setIaDraft(null);
     setIaErro("");
-    setIaResumo("");
     setValidadeLocalConfiavel(false);
     setSeletorVisivel(true);
   }
@@ -206,8 +202,6 @@ export default function NovoMedicamento() {
       const foto = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1, allowsEditing: false });
       if (foto.canceled || !foto.assets.length) return;
       setImagens(atuais => adicionarImagens(atuais, foto.assets, "camera"));
-      setIaDraft(null);
-      setIaResumo("");
     } catch (error) {
       const mensagem = error instanceof Error ? error.message : "Não foi possível ler a foto. Tente novamente.";
       alerta("Câmera", mensagem.includes("ActivityResultLauncher")
@@ -229,8 +223,6 @@ export default function NovoMedicamento() {
       });
       if (selecao.canceled || !selecao.assets?.length) return;
       setImagens(atuais => adicionarImagens(atuais, selecao.assets, "galeria"));
-      setIaDraft(null);
-      setIaResumo("");
     } catch (error) {
       alerta("Galeria", error instanceof Error ? error.message : "Não foi possível abrir o seletor de imagens.");
     } finally { setLendo(false); travaLeitura.current = false; }
@@ -246,8 +238,6 @@ export default function NovoMedicamento() {
     if (imagem) {
       setImagens(atuais => atuais.map(item => item.id === imagem.id ? { ...item, recorteUri: uri } : item));
       setResultadosGemini(atuais => atuais.filter(resultado => resultado.id !== imagem.id));
-      setIaDraft(null);
-      setIaResumo("");
       setResultadosImagem(atuais => atuais.map(resultado => resultado.id === imagem.id && resultado.status !== "falha"
         ? { ...resultado, status: "sem-validade", erro: "Recorte atualizado; a leitura precisa ser repetida." }
         : resultado));
@@ -265,7 +255,6 @@ export default function NovoMedicamento() {
     const resultadosRestantes = resultadosImagem.filter(resultado => resultado.id !== id);
     const historicoRestante = historicoOCR.filter(resultado => resultado.id !== id);
     setResultadosGemini(atuais => atuais.filter(resultado => resultado.id !== id));
-    setIaDraft(combinarResultadosGemini(resultadosGemini.filter(resultado => resultado.id !== id)));
     setImagens(imagensRestantes);
     setResultadosImagem(resultadosRestantes);
     setHistoricoOCR(historicoRestante);
@@ -279,7 +268,6 @@ export default function NovoMedicamento() {
     setAnalisando(true);
     setProgressoOCR({ concluidas: 0, total: imagens.length });
     setIaErro("");
-    setIaResumo("");
     try {
       if (tecnologiaOCR(destinoOCR) === "gemini") {
         const permitido = await pedirConsentimentoGemini();
@@ -296,13 +284,36 @@ export default function NovoMedicamento() {
         );
         setResultadosGemini(lote.resultados);
         const sugestao = combinarResultadosGemini(lote.resultados);
-        setIaDraft(sugestao);
         const falhas = lote.resultados.filter(resultado => resultado.status === "falha").length;
         const sucesso = lote.resultados.filter(resultado => resultado.status === "sucesso").length;
-        const resumo = `${sucesso} de ${imagens.length} imagens analisadas.${falhas ? ` ${falhas} falha(s); tente novamente nas imagens com erro.` : ""}${sugestao ? " Revise lote, fabricação e validade antes de confirmar." : ""}`;
-        setIaResumo(resumo);
-        setAvisoLeitura(resumo);
-        if (!sugestao && falhas) setIaErro(lote.resultados.find(resultado => resultado.status === "falha")?.erro ?? "Não foi possível analisar as imagens. Tente novamente ou preencha os campos manualmente.");
+        if (sucesso > 0 && sugestao) {
+          const temDados = sugestao.transcricao_linhas.length > 0 || Boolean(sugestao.lote || sugestao.fabricacao || sugestao.validade);
+          if (temDados) {
+            const validadeProtegida = camposManuais.current.has("validade") || validadeLocalConfiavel;
+            const aplicacao = aplicarResultadoGemini(form, sugestao, validadeProtegida);
+            const novoTextoGemini = textoOCRGemini.includes(aplicacao.anotacao)
+              ? textoOCRGemini
+              : [textoOCRGemini, aplicacao.anotacao].filter(Boolean).join("\n\n");
+            setTextoOCRGemini(novoTextoGemini);
+            setForm({ ...aplicacao.form, texto_ocr: combinarHistorico(historicoOCR, novoTextoGemini) });
+            if (aplicacao.validadeAplicada) camposManuais.current.add("validade");
+            const incertos = sugestao.campos_incerto.length
+              ? ` Confira manualmente: ${sugestao.campos_incerto.join(", ")}.`
+              : "";
+            const validade = aplicacao.validadeAplicada
+              ? " A validade foi preenchida."
+              : sugestao.validade && validadeProtegida
+                ? " A validade que você já havia preenchido foi preservada."
+                : " Confira a validade no cadastro.";
+            setAvisoLeitura(`${sucesso} de ${imagens.length} imagens analisadas com Gemini. Lote, fabricação e transcrição foram adicionados ao texto OCR.${validade}${incertos}${falhas ? ` ${falhas} imagem(ns) falharam; você pode tentar novamente.` : " Revise os dados e salve o cadastro."}`);
+          } else {
+            setAvisoLeitura(`${sucesso} de ${imagens.length} imagens analisadas, mas nenhum dado de lote, fabricação ou validade foi reconhecido.${falhas ? ` ${falhas} imagem(ns) falharam.` : " Tente novamente ou preencha manualmente."}`);
+          }
+          setSeletorVisivel(false);
+        } else {
+          setAvisoLeitura(`${sucesso} de ${imagens.length} imagens analisadas.${falhas ? ` ${falhas} falha(s); tente novamente nas imagens com erro.` : " Nenhum dado foi reconhecido; tente novamente ou preencha manualmente."}`);
+          setIaErro(lote.resultados.find(resultado => resultado.status === "falha")?.erro ?? "Não foi possível reconhecer dados nas imagens. Tente novamente ou preencha os campos manualmente.");
+        }
         return;
       }
 
@@ -324,7 +335,8 @@ export default function NovoMedicamento() {
       }));
       const falhas = lote.resultados.filter(resultado => resultado.status === "falha" || resultado.status === "sem-texto").length;
       const sucesso = lote.resultados.length - falhas;
-      setAvisoLeitura(`${sucesso} de ${lote.resultados.length} imagens analisadas com ML Kit.${falhas ? ` ${falhas} imagem(ns) sem reconhecimento; tente novamente.` : " Revise os campos sugeridos antes de salvar."}${leitura.validadeMensal ? " Validade mensal convertida para o último dia do mês; confira no rótulo." : ""}`);
+      setAvisoLeitura(`${sucesso} de ${lote.resultados.length} imagens analisadas com ML Kit.${falhas ? ` ${falhas} imagem(ns) sem reconhecimento; você pode tentar novamente.` : " Os resultados foram adicionados ao cadastro; revise os campos e salve."}${leitura.validadeMensal ? " Validade mensal convertida para o último dia do mês; confira no rótulo." : ""}`);
+      if (sucesso > 0) setSeletorVisivel(false);
     } catch (error) {
       setAvisoLeitura(error instanceof Error ? error.message : "Não foi possível analisar as imagens selecionadas.");
     } finally {
@@ -332,33 +344,6 @@ export default function NovoMedicamento() {
       travaAnalise.current = false;
     }
   }
-  function confirmarResultadoIA() {
-    if (!iaDraft) return;
-    const validadeProtegida = camposManuais.current.has("validade") || validadeLocalConfiavel;
-    try {
-      const aplicacao = aplicarGeminiConfirmado(form, iaDraft, validadeProtegida);
-      const novoTextoGemini = textoOCRGemini.includes(aplicacao.anotacao)
-        ? textoOCRGemini
-        : [textoOCRGemini, aplicacao.anotacao].filter(Boolean).join("\n\n");
-      setTextoOCRGemini(novoTextoGemini);
-      setForm({ ...aplicacao.form, texto_ocr: combinarHistorico(historicoOCR, novoTextoGemini) });
-      if (aplicacao.validadeAplicada) camposManuais.current.add("validade");
-      setIaDraft(null);
-      setIaResumo("");
-      setAvisoLeitura(aplicacao.validadeAplicada || !iaDraft.validade
-        ? "Sugestões do Gemini confirmadas. Revise os dados e salve para persistir."
-        : "Texto e dados da IA confirmados; a validade existente foi preservada. Compare as duas sugestões e corrija o cadastro manualmente se necessário.");
-    } catch (error) {
-      setIaErro(error instanceof Error ? error.message : "Revise a validade sugerida antes de confirmar.");
-    }
-  }
-
-  function descartarResultadoIA() {
-    setIaDraft(null);
-    setIaErro("");
-    setIaResumo("");
-  }
-
   async function salvar() {
     const validade = converterDataParaISO(form.validade);
     if (!form.nome.trim() || !validade) {
@@ -464,22 +449,6 @@ export default function NovoMedicamento() {
               <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progressoOCR.total ? (progressoOCR.concluidas / progressoOCR.total) * 100 : 0}%` }]} /></View>
             </View>}
             {!!iaErro && <Text accessibilityLiveRegion="polite" style={styles.errorText}>{iaErro}</Text>}
-            {!!iaResumo && <View style={styles.summaryCard}><Text accessibilityLiveRegion="polite" style={styles.summaryText}>{iaResumo}</Text></View>}
-
-            {!!iaDraft && <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>Análise concluída</Text>
-              <Text style={styles.guidanceText}>Revise as informações sugeridas. Elas só serão aplicadas ao formulário após sua confirmação.</Text>
-              <Text style={styles.label}>Lote identificado</Text>
-              <TextInput accessibilityLabel="Sugestão de lote do Gemini" value={iaDraft.lote ?? ""} onChangeText={value => setIaDraft(prev => prev ? { ...prev, lote: value || null } : prev)} style={styles.input} />
-              <Text style={styles.label}>Data de fabricação</Text>
-              <TextInput accessibilityLabel="Sugestão de fabricação do Gemini" value={iaDraft.fabricacao ?? ""} onChangeText={value => setIaDraft(prev => prev ? { ...prev, fabricacao: value || null } : prev)} style={styles.input} />
-              <Text style={styles.label}>Data de validade</Text>
-              <TextInput accessibilityLabel="Sugestão de validade do Gemini" value={iaDraft.validade ?? ""} onChangeText={value => setIaDraft(prev => prev ? { ...prev, validade: value || null } : prev)} placeholder="DD/MM/AAAA" style={styles.input} />
-              {!!iaDraft.campos_incerto.length && <Text style={styles.guidanceText}>Confira com atenção: {iaDraft.campos_incerto.join(", ")}.</Text>}
-              {iaDraft.avisos.map((aviso, index) => <Text key={`${index}-${aviso}`} style={styles.guidanceText}>{aviso}</Text>)}
-              <Pressable accessibilityRole="button" style={styles.button} onPress={confirmarResultadoIA}><Text style={styles.buttonText}>Confirmar sugestões</Text></Pressable>
-              <Pressable accessibilityRole="button" style={styles.closeButton} onPress={descartarResultadoIA}><Text style={styles.closeButtonText}>Descartar sugestões</Text></Pressable>
-            </View>}
 
             {!!resultadosImagem.length && destinoOCR !== "validade" && <View style={styles.summaryCard}>
               <Text style={styles.resultTitle}>{resultadosImagem.filter(item => item.status === "sucesso").length} de {resultadosImagem.length} imagens analisadas com ML Kit.</Text>

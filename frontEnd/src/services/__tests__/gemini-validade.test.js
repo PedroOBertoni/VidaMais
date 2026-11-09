@@ -1,4 +1,4 @@
-import { aplicarGeminiConfirmado, executarComConsentimento, validarRespostaGemini } from "../gemini-validade";
+import { aplicarResultadoGemini, executarComConsentimento, validarRespostaGemini } from "../gemini-validade";
 
 const suggestion = {
   transcricao_linhas: ["L 967605", "F 02/2025", "V 02/2027"],
@@ -9,7 +9,7 @@ const suggestion = {
   avisos: [],
 };
 
-describe("Gemini Vision consent and review", () => {
+describe("Gemini Vision consent and result application", () => {
   test("cancelled consent does not prepare or send the image", async () => {
     const prepare = jest.fn();
     const send = jest.fn();
@@ -28,17 +28,17 @@ describe("Gemini Vision consent and review", () => {
 
   test("keeps an existing manual or trusted local validity and preserves prior OCR", () => {
     const form = { validade: "01/03/2027", texto_ocr: "Texto local anterior", leitura_em: "old" };
-    const applied = aplicarGeminiConfirmado(form, suggestion, true);
+    const applied = aplicarResultadoGemini(form, suggestion, true);
     expect(applied.form.validade).toBe("01/03/2027");
     expect(applied.form.texto_ocr).toContain("Texto local anterior");
     expect(applied.form.texto_ocr).toContain("L 967605");
     expect(applied.form.leitura_em).not.toBe("old");
   });
 
-  test("fills an empty or replaceable untrusted validity only after confirmation", () => {
-    expect(aplicarGeminiConfirmado({ validade: "", texto_ocr: "", leitura_em: "" }, suggestion, false).form.validade)
+  test("fills an empty validity and replaces only an unprotected existing value", () => {
+    expect(aplicarResultadoGemini({ validade: "", texto_ocr: "", leitura_em: "" }, suggestion, false).form.validade)
       .toBe("28/02/2027");
-    expect(aplicarGeminiConfirmado({ validade: "31/01/2027", texto_ocr: "", leitura_em: "" }, suggestion, false).form.validade)
+    expect(aplicarResultadoGemini({ validade: "31/01/2027", texto_ocr: "", leitura_em: "" }, suggestion, false).form.validade)
       .toBe("28/02/2027");
   });
 
