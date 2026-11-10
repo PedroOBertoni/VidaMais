@@ -99,9 +99,13 @@ O SQL Editor tem privilégios administrativos. Para testar o isolamento, use dua
 
 O teste da API cria duas sessões anônimas e registros temporários. `npm run test:integracao` em `backEnd` carrega automaticamente as variáveis públicas de `frontEnd/.env`; também aceita `SUPABASE_URL` e `SUPABASE_PUBLIC_KEY` em `backEnd/.env`. O teste apaga somente os IDs aleatórios criados naquela execução. As contas anônimas de teste permanecem em Authentication → Users.
 
+## Gemini Vision (opcional)
+
+O ML Kit de embalagem e bula funciona no aparelho e não exige configuração de IA. Para habilitar **Ler validade e lote**, configure `GEMINI_API_KEY` exclusivamente em **Supabase Dashboard → Edge Functions → Secrets** e publique `analisar-validade` conforme [GEMINI_VISION_SETUP.md](frontEnd/GEMINI_VISION_SETUP.md). A função exige JWT da sessão do app; mantenha a verificação habilitada. Não coloque a chave Gemini em `frontEnd/.env`, no APK ou no repositório. O app solicita consentimento antes do envio da imagem/recorte ao Supabase e Google.
+
 ## Opções e segurança
 
-- O OCR e o SQLite não precisam de credenciais ou conexão.
+- O OCR local com ML Kit e o SQLite não precisam de credenciais ou conexão; a análise Gemini de validade/lote exige conexão, consentimento e a Edge Function configurada.
 - Chave Publishable e URL são configurações públicas do cliente; RLS e autenticação limitam os dados.
 - Não coloque `sb_secret_...`, `service_role`, senha do PostgreSQL ou token de usuário no frontend, Git ou chat.
 - Supabase recomenda controles contra abuso para cadastros anônimos em aplicações abertas à internet. Para a demonstração acadêmica, habilite CAPTCHA se o projeto oferecer essa opção e houver exposição pública.

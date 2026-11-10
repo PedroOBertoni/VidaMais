@@ -14,8 +14,8 @@ O Supabase fornece a API da tabela `public.medicamentos`. O aplicativo usa `@sup
 | `laboratorio`, `indicacao`, `contraindicacoes`, `posologia`, `efeitos_adversos`, `precaucoes`, `observacoes` | Texto; padrão string vazia; não enviar `null` |
 | `created_at` | Data de criação; padrão horário do servidor, preservada nas edições |
 | `updated_at` | Horário da última gravação, definido pelo servidor |
-| `texto_ocr` | Texto reconhecido nas fotos da embalagem/bula; padrão string vazia |
-| `leitura_em` | Data/hora ISO da última leitura OCR; string vazia se cadastro manual |
+| `texto_ocr` | Texto reconhecido em embalagem/bula e transcrição de validade/lote via Gemini; padrão string vazia |
+| `leitura_em` | Data/hora ISO da última análise OCR/IA; string vazia se cadastro manual |
 
 `sync_id`, `user_id` e `id` não podem ser alterados depois da inclusão. O `sync_id` permanece globalmente único para manter compatibilidade com o frontend.
 

@@ -8,6 +8,8 @@ Endereço desta sessão: `exp://192.168.2.6:8081`.
 
 O QR code abre o projeto dentro do Expo Go. Não é um APK independente do Vida+; o computador precisa continuar ligado e com o servidor em execução.
 
+O Expo Go serve para desenvolvimento e cadastro manual, mas não inclui o módulo nativo do ML Kit. Para câmera e OCR local de embalagem/bula, use o APK release ou outra build nativa. A análise Gemini é remota e precisa de consentimento, rede e Edge Function publicada; sua validação documentada é pela build Android. Consulte [OCR.md](OCR.md) e [GEMINI_VISION_SETUP.md](GEMINI_VISION_SETUP.md).
+
 ## Iniciar novamente
 
 Na pasta `frontEnd`:
@@ -24,8 +26,8 @@ node scripts/gerar-qrcode.cjs exp://NOVO_IP:8081
 
 A configuração pública do Supabase está em `.env`, que é ignorado pelo Git.
 
-## Conferir no aparelho
+## Conferir recursos no aparelho
 
-Cadastre um medicamento, abra seus detalhes e a bula, edite e exclua. Confira as mudanças na tabela `medicamentos` do Supabase. Depois faça um cadastro sem conexão à nuvem e reabra o aplicativo com conexão para enviar os dados pendentes.
+Com o APK instalado, teste o cadastro manual, Home/listagem, detalhe, edição, exclusão, Snackbar e sincronização na tabela `medicamentos` do Supabase. Depois faça um cadastro sem conexão à nuvem e reabra o aplicativo com conexão para enviar os dados pendentes. Os roteiros específicos de câmera/galeria, OCR e Gemini estão em [TESTES_FINAIS.md](../TESTES_FINAIS.md).
 
-Já foram validados TypeScript, os sete testes de datas, a geração do bundle Android e o fluxo completo no Chrome com SQLite real e Supabase, incluindo a correção da altura dos filtros. Ainda é necessário conferir a execução nativa no celular. Para usar no navegador, siga [WEB.md](WEB.md).
+Ainda é necessário conferir no smartphone o foco da câmera, seleção de imagens, permissões, renderização do diálogo de exclusão e análise Gemini com uma embalagem real. A validação em Expo Go ou navegador não comprova esses fluxos nativos. Para usar no navegador, siga [WEB.md](WEB.md).

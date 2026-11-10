@@ -4,15 +4,17 @@ Aplicativo multiplataforma para cadastro, organização e acompanhamento da vali
 
 ## Entrega do 2º bimestre
 
-O fluxo de câmera e OCR foi integrado ao cadastro: fotografe a embalagem, revise as sugestões de nome, laboratório e validade e salve no SQLite. O texto reconhecido e a data da leitura seguem na sincronização com o Supabase. Também é possível transcrever uma foto da bula para Observações.
+O cadastro aceita várias imagens da câmera e da galeria na mesma análise. O ML Kit processa embalagem e bula no aparelho; Gemini Vision, pela Edge Function autenticada do Supabase, complementa a leitura de lote, fabricação e validade. Os resultados são aplicados ao formulário, preservando alterações manuais, e o texto original é salvo junto com o medicamento.
 
 - [Instalação, uso e limites do OCR](frontEnd/OCR.md)
+- [Fluxo, consentimento e diagnóstico do Gemini](frontEnd/GEMINI_VISION_SETUP.md)
+- [Build e instalação Android](frontEnd/APK.md)
 - [Migração do banco Supabase existente](backEnd/migracao-ocr.sql)
 - [Configuração de um projeto Supabase novo](CONFIGURACAO_SUPABASE.md)
 - [Checklist de testes finais](TESTES_FINAIS.md)
 - [Roteiro e slides da apresentação](APRESENTACAO.md)
 
-O OCR exige o APK atualizado; não funciona no Expo Go nem no navegador. Para testes, use Node 22.13+ (o teste SQLite usa `node:sqlite`).
+O OCR local com ML Kit exige o APK nativo; o módulo não está no Expo Go nem no navegador. A rota Gemini é remota e requer consentimento, internet e Edge Function publicada. Para testes, use Node 22.13+ (o teste SQLite usa `node:sqlite`).
 
 ## Contexto acadêmico
 
@@ -50,13 +52,23 @@ Esses dados são informativos e não substituem a bula oficial, orientação mé
 * classificação automática da validade;
 * busca por nome ou laboratório;
 * filtros por situação do medicamento;
+* indicador **Medicamentos** da Home abre a mesma lista de **Ver todos**;
+* botão de adicionar padronizado entre Home e listagem;
 * visualização detalhada dos registros;
 * consulta das informações cadastradas de bula;
+* captura e seleção de várias imagens por câmera e galeria, com pré-visualização, remoção e recorte;
+* OCR local com Google ML Kit para embalagem e bula;
+* análise complementar de validade e lote com Gemini, mediante consentimento;
+* preenchimento automático do cadastro ao concluir a análise, sem sobrescrever campos editados manualmente;
+* extração estruturada de seções da bula, mantendo o texto original para conferência;
 * armazenamento offline com SQLite;
 * sincronização bidirecional com Supabase;
 * sincronização de inclusões, alterações e exclusões;
 * isolamento dos dados por usuário com Row Level Security (RLS);
 * autenticação anônima persistente;
+* diagnóstico local das últimas 20 tentativas de IA, sem dados sensíveis no relatório;
+* Snackbar global com desaparecimento automático para confirmações de cadastro, edição e exclusão;
+* diálogo de exclusão com confirmação explícita e botões de cancelar/excluir destacados;
 * suporte a Android, iOS e web;
 * estados de carregamento, erro e registro não encontrado;
 * recursos básicos de acessibilidade;
@@ -82,6 +94,8 @@ Esses dados são informativos e não substituem a bula oficial, orientação mé
 * PostgreSQL;
 * Supabase Auth;
 * Supabase Data API;
+* Supabase Edge Functions (Deno);
+* Google Gemini Vision, acessado somente pelo backend;
 * Row Level Security (RLS).
 
 ## Arquitetura
@@ -118,6 +132,8 @@ Telas e componentes Expo Router
  Supabase Auth + API + PostgreSQL
 ```
 
+Para análise por IA, somente o fluxo de validade e lote envia a imagem ou recorte selecionado: o aplicativo exige consentimento e chama a Edge Function `analisar-validade` com a sessão autenticada. A chave Gemini fica nos secrets da função. O fluxo ML Kit de embalagem e bula é local.
+
 ## Estrutura do projeto
 
 ```text
@@ -149,6 +165,13 @@ vidaMais/
 │   ├── metro.config.js
 │   ├── package.json
 │   └── tsconfig.json
+│
+├── supabase/
+│   ├── config.toml
+│   └── functions/
+│       └── analisar-validade/
+│           ├── index.ts
+│           └── core.ts
 │
 └── backEnd/
     ├── tests/
@@ -340,6 +363,8 @@ Principais campos:
 | `efeitos_adversos` | `text`        | Efeitos adversos                  |
 | `precaucoes`       | `text`        | Precauções                        |
 | `observacoes`      | `text`        | Observações                       |
+| `texto_ocr`        | `text`        | Texto original reconhecido e transcrições da análise Gemini |
+| `leitura_em`       | `text`        | Horário ISO da última análise OCR |
 | `created_at`       | `timestamptz` | Data de criação                   |
 | `updated_at`       | `timestamptz` | Última atualização                |
 
@@ -473,10 +498,10 @@ npm test
 
 Os testes atuais cobrem regras relacionadas a:
 
-* conversão de datas;
-* formatação de datas;
-* validação de datas;
-* classificação da validade.
+* conversão e validação de datas, validade e extração de embalagem;
+* seleção de pipeline, OCR de várias imagens, falhas parciais e conflito entre leituras;
+* análise Gemini, persistência do consentimento e proteção de campos manuais;
+* diagnósticos de IA, persistência SQLite e sincronização.
 
 ## Testes do backend
 
@@ -596,10 +621,11 @@ dist/
 
 ## Limitações atuais
 
-* textos de bula são cadastrados manualmente;
+* a leitura da bula depende das fotos selecionadas e de heurísticas para reconhecer títulos de seção; revise e complete os campos manualmente;
 * não existe integração com base farmacêutica oficial;
-* OCR é executado no APK nativo; não está disponível no Expo Go ou web;
-* as sugestões de embalagem usam heurísticas de texto, exigem revisão e não identificam medicamentos clinicamente;
+* ML Kit é executado no APK nativo; não está disponível no Expo Go ou web;
+* Gemini exige internet, consentimento e envia a imagem ou recorte selecionado ao Supabase e ao Google; os campos reconhecidos precisam ser conferidos;
+* sugestões de embalagem e bula exigem revisão e não identificam medicamentos clinicamente;
 * autenticação atual é anônima;
 * não existe recuperação de conta entre dispositivos;
 * conflitos usam uma regra simples: alterações locais pendentes são enviadas primeiro; registros remotos só atualizam cópias locais já sincronizadas;
@@ -609,7 +635,6 @@ dist/
 
 O projeto poderá futuramente incluir:
 
-* leitura automática de embalagens;
 * reconhecimento de medicamentos;
 * notificações de vencimento;
 * autenticação com e-mail;

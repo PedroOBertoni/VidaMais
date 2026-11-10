@@ -1,71 +1,75 @@
-# Leitura de embalagens e bula
+# OCR de embalagem, validade e bula
 
-O aplicativo usa `expo-image-picker` para fotografar e `@react-native-ml-kit/text-recognition` para reconhecer texto com Google ML Kit no aparelho. Não envia a foto para um serviço de OCR e não exige chave de API para a leitura. A foto é temporária; o texto reconhecido é associado ao medicamento e sincronizado com o Supabase.
+O cadastro usa o mesmo fluxo de imagens e o botão **Analisar imagens** para embalagem, validade/lote e bula. Para combinar frente, lateral e validade, adicione imagens da câmera e da galeria na mesma sessão. O seletor permite pré-visualizar e remover fotos; no fluxo de validade também é possível recortar a região relevante.
 
-## Instalação Android
+## Como usar
 
-```powershell
-npm install
-npm run typecheck
-npm test -- --watch=false
-npm run build:apk
-```
+1. Abra **Cadastrar medicamento** ou **Editar medicamento**.
+2. Escolha **Ler embalagem**, **Ler validade e lote** ou **Ler bula**.
+3. Toque **Tirar outra foto** para capturar pela câmera ou **Adicionar da galeria** para selecionar imagens. Você pode misturar as duas origens e acrescentar imagens antes da análise.
+4. Confira as miniaturas e, se necessário, remova uma imagem ou abra **Recortar data** no fluxo de validade e lote.
+5. Toque uma vez em **Analisar imagens**. A análise não começa enquanto não houver imagens e o botão fica bloqueado durante o processamento.
+6. Quando ao menos uma imagem conclui a análise, os campos/textos reconhecidos são aplicados e o seletor fecha automaticamente. Se não houver dados reconhecidos, o cadastro retorna com um aviso; revise os campos e salve o medicamento.
 
-O APK fica em `artifacts/VidaMais.apk`. Instale como atualização para preservar o banco e a sessão do aparelho. A assinatura existente é preservada pelo script de build. Não desinstale o app antes de atualizar se precisar manter dados locais e o acesso do usuário anônimo.
+Se todas as imagens falharem, o seletor permanece aberto para tentar novamente. Resultados bem-sucedidos são preservados quando há falha parcial. Para uma imagem nova, volte ao mesmo fluxo, acrescente a foto ou repita a análise; campos manuais não são substituídos.
 
-O OCR exige o APK atualizado ou uma compilação nativa própria. Expo Go e navegador continuam permitindo o cadastro manual, mas não executam esse OCR. Para iOS é necessária compilação nativa em macOS com instalação dos Pods; o APK é a entrega Android.
+## Mecanismo usado por fluxo
 
-## Banco remoto
+| Fluxo | Processamento | Campos e resultado |
+| --- | --- | --- |
+| **Ler embalagem** | Google ML Kit local no APK | Sugere nome, laboratório e validade a partir do texto reconhecido. Preenche campos vazios e não substitui valores já digitados. |
+| **Ler validade e lote** | Supabase Edge Function `analisar-validade` → Gemini Vision | Lê caracteres industriais, lote, fabricação e validade. A validade sugerida é aplicada automaticamente se o campo não estiver protegido por edição manual ou leitura local confiável. Lote, fabricação e transcrição são preservados no texto OCR, pois não há colunas separadas para esses dados. |
+| **Ler bula** | Google ML Kit local no APK | Usa títulos reconhecidos para sugerir indicação, contraindicações, posologia, efeitos adversos e precauções. Não transfere a bula inteira automaticamente para Observações. |
 
-Em um projeto Supabase já existente, executar [migracao-ocr.sql](../backEnd/migracao-ocr.sql). Para um projeto novo, [schema.sql](../backEnd/schema.sql) já inclui as colunas. A chave pública do app não tem permissão para alterar o esquema.
+O texto original reconhecido, inclusive as linhas retornadas pelo Gemini, é guardado em `texto_ocr`; `leitura_em` registra o horário da leitura. Ambos são persistidos no SQLite e sincronizados na linha do medicamento no Supabase. **Ver texto original** abre o conteúdo integral para conferência, sem ocupar a tela principal do cadastro.
 
-| Coluna | Uso |
-|---|---|
-| `texto_ocr` | Texto das fotos feitas no cadastro, antes da revisão dos campos |
-| `leitura_em` | Data/hora ISO da última leitura |
+## Consentimento e privacidade do fluxo Gemini
 
-O SQLite migra essas colunas automaticamente ao iniciar, preservando os registros existentes. Os campos seguem no upload e no download da sincronização.
+O fluxo de validade e lote precisa de internet. Antes do primeiro envio, o aplicativo explica que a imagem selecionada ou o recorte será enviado ao Supabase e ao Google Gemini e pede autorização. A pessoa pode autorizar somente durante a sessão ou salvar a preferência no aparelho; essa preferência pode ser consultada ou revogada no cadastro. Cancelar não envia a imagem.
 
-## Uso
+As fotos e os recortes são processados em memória e não são gravados no Supabase Storage. A chave `GEMINI_API_KEY` fica somente nos secrets da Edge Function; nunca deve estar no `.env` do frontend, no APK ou no repositório. Consulte [GEMINI_VISION_SETUP.md](GEMINI_VISION_SETUP.md) para arquitetura, deployment e diagnóstico.
 
-1. Abrir **Cadastrar medicamento** ou **Editar**.
-2. Tocar **Fotografar embalagem**, autorizar a câmera, fotografar e confirmar a imagem.
-3. Revisar nome, laboratório e validade sugeridos. Campos preenchidos são preservados entre fotos.
-4. Fotografar a lateral se a validade não aparecer na frente. Para substituir um campo preenchido, limpar o campo e fazer nova leitura ou editar manualmente.
-5. Usar **Fotografar texto da bula** para transcrever um trecho em Observações. Revisar e distribuir nos campos de indicação, contraindicações, posologia etc. quando necessário.
-6. Salvar. Sem internet, o registro fica local e pendente; com internet, o app tenta sincronizar.
-7. Nos detalhes, conferir a situação de armazenamento, o texto original e a data da leitura.
+Em embalagem e bula, o ML Kit reconhece texto no próprio aparelho e não envia as imagens para OCR remoto. As imagens selecionadas permanecem temporárias; o app persiste os resultados textuais, não as fotografias.
 
-## Limites da extração
+## Interpretação e revisão
 
-- OCR reconhece texto; a extração do nome usa rótulos e heurísticas, não um catálogo de todos os medicamentos.
-- Laboratório pode ser extraído de rótulo explícito ou de marcas reconhecíveis na impressão. Não há garantia para todo logotipo estilizado.
-- Validade é sugerida quando acompanha `VAL`, `VALIDADE`, `VENC`, `VENCIMENTO` ou um rótulo `V:` no início da linha. Datas de fabricação (`F:`) ou lote (`L:`) não devem preencher o vencimento.
-- Aceita dia/mês/ano e mês/ano, separados por barra, ponto ou hífen. Mês/ano sugere o último dia daquele mês e exibe um aviso para revisão.
-- Texto borrado, curvo, baixo contraste, gravação em relevo e reflexos podem exigir outra foto ou correção manual.
-- A bula completa não pode ser deduzida de uma caixa. Somente texto efetivamente fotografado ou cadastrado é apresentado.
+- O OCR transcreve o que está visível; sugestões de nome e laboratório são heurísticas, não identificação clínica nem consulta a catálogo farmacêutico.
+- No fluxo de validade, o Gemini considera abreviações como `L`, `F`, `V`, `FAB`, `VAL` e `EXP`, mas pode falhar em impressões pontilhadas. Confira a validade e os dados originais na embalagem.
+- A validade digitada manualmente é preservada. Campos de embalagem/bula já preenchidos também não são sobrescritos automaticamente.
+- Se imagens apresentarem valores conflitantes ou incertos, confira o aviso no cadastro e abra o texto original antes de salvar.
+- A extração da bula depende de títulos visíveis e pode não reconhecer todas as seções. Revise as sugestões; o aplicativo não gera conteúdo farmacológico ausente das fotos.
+- Datas de mês/ano são normalizadas segundo as regras do app e devem ser conferidas na embalagem.
 
-## Validação no celular
+## Dependências e limitações de execução
+
+O OCR local do ML Kit exige uma compilação nativa e não funciona no Expo Go nem no navegador. No Android, instale [o APK release](APK.md). Expo Go e web continuam disponíveis para cadastro manual e outras funções suportadas. A análise remota Gemini requer o app atualizado, imagem selecionada, consentimento, conexão e Edge Function publicada/autenticada; a validação documentada é pela build Android.
+
+O acesso à galeria usa o seletor de imagens do sistema e não pede permissão ampla de biblioteca. A câmera solicita sua permissão quando escolhida. Cancelar qualquer seletor preserva o formulário.
+
+## Persistência Supabase
+
+Para uma tabela existente, aplique [a migração OCR](../backEnd/migracao-ocr.sql); uma instalação nova usa [schema.sql](../backEnd/schema.sql). As colunas são:
+
+| Coluna | Conteúdo |
+| --- | --- |
+| `texto_ocr` | Texto reconhecido e transcrições das imagens |
+| `leitura_em` | Data/hora ISO da última análise |
+
+As colunas são migradas automaticamente no SQLite e acompanham inserção, edição, download e sincronização remota. Não é necessário criar tabela adicional para Gemini.
+
+## Verificação física
 
 | Cenário | Resultado esperado |
-|---|---|
-| Autorizar câmera e fotografar frente | Texto reconhecido visível; campos vazios recebem sugestões |
-| Cancelar foto | Formulário preservado; botões voltam a funcionar |
-| Negar câmera | Orientação para autorizar; formulário manual disponível |
-| Foto sem texto | Aviso para melhorar enquadramento e iluminação |
-| Foto só da fabricação | Validade permanece vazia |
-| Segunda foto da lateral | Complementa validade sem apagar nome revisado |
-| Foto de bula | Texto é acrescentado a Observações |
-| Salvar offline e reiniciar | Campos e texto OCR persistem no SQLite |
-| Reconectar e sincronizar | Campos e texto aparecem na mesma linha do Supabase |
-| Editar e sincronizar outra vez | Atualiza a mesma linha sem duplicação |
+| --- | --- |
+| Adicionar imagens da câmera e da galeria | Miniaturas de ambas as origens ficam juntas na sessão |
+| Cancelar câmera ou galeria | Nenhuma foto nova é adicionada e o formulário continua disponível |
+| Remover e pré-visualizar foto | Somente a imagem escolhida é afetada |
+| Analisar embalagem ou bula | ML Kit aplica os resultados e retorna automaticamente ao cadastro |
+| Analisar validade/lote com consentimento | Gemini aplica os resultados e retorna ao cadastro; validade manual é preservada |
+| Uma imagem falha e outra é reconhecida | O resultado válido permanece no cadastro; a falha é indicada para nova tentativa |
+| Conferir texto original e salvar offline | `texto_ocr` e `leitura_em` persistem no SQLite |
+| Reconectar e sincronizar | Os mesmos campos chegam à linha do medicamento no Supabase |
 
-Referências técnicas: [biblioteca OCR](https://github.com/a7medev/react-native-ml-kit/tree/main/text-recognition), [Expo ImagePicker](https://docs.expo.dev/versions/latest/sdk/imagepicker/).
+O checklist para a validação em aparelho está em [`../TESTES_FINAIS.md`](../TESTES_FINAIS.md). Testes automatizados e typecheck não comprovam foco de câmera, qualidade de OCR nem o comportamento real do seletor do sistema.
 
-## Verificações desta revisão — 07/11/2026
-
-- `npm run typecheck`: passou.
-- `npm test -- --watch=false`: 29 testes passaram em quatro suítes, incluindo extração OCR heurística, migração SQLite legada, persistência dos campos OCR e paginação/falha de sincronização. O teste SQLite usa `node:sqlite`; Jest informa que esse recurso ainda é experimental no Node 24.
-- `npm run build:apk`: compilação release ARM64 concluída. O pacote nativo ML Kit foi compilado e incluído. APK: `artifacts/VidaMais.apk`.
-- `npx expo-doctor`: 16/18 verificações passaram. Restaram o aviso de configuração nativa mantida manualmente (o projeto não usa prebuild no build) e o aviso de que o ML Kit não foi validado pela React Native Directory com New Architecture; essa arquitetura está desativada no Android.
-- Nenhum teste de câmera em smartphone nem de API Supabase real foi executado nesta revisão. O APK compilado não comprova leitura física da câmera; use o checklist em [`TESTES_FINAIS.md`](../TESTES_FINAIS.md).
+Referências: [Expo ImagePicker](https://docs.expo.dev/versions/latest/sdk/imagepicker/), [React Native ML Kit Text Recognition](https://github.com/a7medev/react-native-ml-kit/tree/main/text-recognition).

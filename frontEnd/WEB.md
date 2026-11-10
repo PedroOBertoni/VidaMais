@@ -2,6 +2,8 @@
 
 Com o servidor em execução, abra http://localhost:8082 no Chrome ou Edge deste computador.
 
+O navegador dá suporte ao cadastro manual e aos recursos web implementados, mas não inclui o módulo nativo ML Kit. Não use o browser para validar OCR local, câmera ou qualidade das imagens. A função Gemini é remota; sua validação documentada é no [APK nativo](APK.md), com rede, consentimento e Edge Function publicada.
+
 Para iniciar novamente, execute na pasta `frontEnd`:
 
 ```powershell

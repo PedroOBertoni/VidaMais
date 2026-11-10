@@ -1,18 +1,18 @@
 # Validação final do Vida+ — apresentação em 11/11/2026
 
-Atualizado em 08/11/2026. Marque os itens do aparelho apenas durante o ensaio real; testes automatizados não comprovam o comportamento em smartphone.
+Atualizado em 09/11/2026. Marque os itens do aparelho apenas durante o ensaio real; testes automatizados não comprovam o comportamento em smartphone.
 
 ## Testes automatizados aprovados
 
-- [x] `frontEnd`: `npm run typecheck` — aprovado em 08/11/2026.
-- [x] `frontEnd`: `npm test -- --watch=false` — 52 testes em 6 suítes aprovados em 08/11/2026; inclui parser de datas, recorte/rotações com dependências injetadas, conflitos e fluxos OCR anteriores.
+- [x] `frontEnd`: `npm run typecheck` — aprovado em 09/11/2026 após os ajustes de análise automática e diálogo de exclusão.
+- [x] `frontEnd`: a execução completa anterior de `npm test -- --watch=false` aprovou 84 testes em 14 suítes. Essa execução foi anterior às últimas mudanças de retorno automático do OCR e apresentação do diálogo; repetir `npm test` antes de registrar uma nova aprovação final.
 - [x] `frontEnd`: `npm run build:web:test` — exportação web concluída em 08/11/2026.
 - [x] `frontEnd`: `npx expo-doctor` — 16/18 verificações aprovadas (2 ressalvas conhecidas), em 08/11/2026.
-- [x] `frontEnd`: `npm run build:apk` — release Android compatível com ARM64 gerado e validado em 08/11/2026; fingerprint igual ao APK anterior/keystore preservado.
+- [x] `frontEnd`: `npm run build:apk` — release ARM64 gerada em 09/11/2026; ABI `arm64-v8a`, assinatura validada e keystore preservado. Tamanho 41,346,827 bytes; fingerprint SHA-256 `ed15cbdc048ed924c90d4d9d8ed0d80fc0636b4dc9ae29b185045f7e47630a85`.
 
 O Expo Doctor apontou que o projeto mantém pastas nativas Android/iOS junto com campos nativos no `app.json`; não execute prebuild automático. Também classificou `@react-native-ml-kit/text-recognition` como não testado na New Architecture. A New Architecture está desativada no app Android.
 
-O APK inclui o bundle Supabase público, 15 bibliotecas nativas arm64, ML Kit e ImageManipulator. Assinatura validada; permissões INTERNET e CAMERA presentes, sem acesso amplo de leitura da galeria. Cópia anterior: `frontEnd/artifacts/VidaMais-antes-correcao-validade.apk`.
+O APK inclui o bundle Supabase público, ML Kit, ImagePicker, ImageManipulator e a interface atual de OCR/Gemini. Assinatura validada; permissões INTERNET e CAMERA presentes, sem acesso amplo de leitura da galeria. Cópia imediatamente anterior: `frontEnd/artifacts/VidaMais-antes-dialog-exclusao-20261109.apk`.
 
 ## Supabase real — backend aprovado
 
@@ -34,16 +34,20 @@ A análise de causa confirmada/hipóteses, os formatos de data e os limites do p
 
 O `adb` não conseguiu iniciar o daemon e nenhum aparelho foi detectado nesta revisão. A acurácia visual das datas e as coordenadas do recorte continuam sem comprovação física. Executar no dispositivo antes da apresentação:
 
-- [ ] Instalar `frontEnd/artifacts/VidaMais.apk` (release revisado com seleção de imagens) e abrir o app.
+- [ ] Instalar `frontEnd/artifacts/VidaMais.apk` (release ARM64 atual) e abrir o app.
 - [ ] Cadastrar medicamento manualmente com nome e validade; fechar/reabrir o app e conferir que continua salvo.
-- [ ] Editar e excluir um medicamento manualmente.
-- [ ] Abrir o cadastro por câmera e aceitar a permissão.
-- [ ] No modo **Ler validade e lote**, repetir o teste com domperidona 10 mg Eurofarma: fotografar a área inferior, analisar, desenhar recorte na impressão dot-matrix se faltar validade e confirmar a data e lote contra a caixa. O fluxo tenta o original antes do recorte e das rotações.
-- [ ] Adicionar fotos da câmera e da galeria na mesma sessão; selecionar várias imagens, adicionar mais depois e verificar que duplicatas identificáveis são ignoradas.
-- [ ] Cancelar o seletor da galeria e negar a permissão da câmera; confirmar que o cadastro segue utilizável.
-- [ ] Fotografar embalagem real; revisar nome, laboratório e validade sugeridos antes de salvar; editar manualmente um campo e confirmar que nova análise não o sobrescreve.
-- [ ] Selecionar imagens de bula e revisar as sugestões estruturadas para indicação, contraindicações, posologia, efeitos adversos e precauções; conferir os textos originais por imagem.
-- [ ] Confirmar que uma imagem com falha não descarta os resultados das outras e que seja possível repetir apenas a imagem que falhou.
+- [ ] Na Home, tocar no indicador **Medicamentos** e confirmar que abre a mesma lista de **Ver todos**; usar Voltar para retornar.
+- [ ] Na lista **Meus medicamentos**, conferir que o botão verde `+` tem o mesmo formato do botão da Home e abre o cadastro.
+- [ ] Abrir o cadastro pela câmera, conceder permissão e adicionar múltiplas fotos; misturar câmera/galeria, pré-visualizar, remover e verificar prevenção de duplicatas identificáveis.
+- [ ] Cancelar o seletor da galeria e negar a permissão da câmera; confirmar que o formulário segue utilizável.
+- [ ] Analisar embalagem e confirmar que ML Kit preenche sugestões e retorna automaticamente ao cadastro; alterar um campo manualmente e verificar que a nova leitura não o substitui.
+- [ ] Selecionar imagens de bula e confirmar retorno automático, sugestões estruturadas para indicação, contraindicações, posologia, efeitos adversos e precauções, sem colocar a bula inteira em Observações.
+- [ ] No modo **Ler validade e lote**, autorizar o envio, fotografar a área inferior de uma embalagem real (incluindo domperidona 10 mg Eurofarma, se disponível), recortar se necessário e confirmar que o Gemini preenche a validade e retorna ao cadastro.
+- [ ] Cancelar o consentimento Gemini e confirmar que a imagem não é enviada; testar a opção lembrar e revogar consentimento.
+- [ ] Conferir que a validade digitada manualmente é preservada pelo Gemini; comparar lote, fabricação e validade com a impressão e abrir **Ver texto original**.
+- [ ] Induzir uma falha em uma das imagens e confirmar que os resultados das demais continuam aplicados e a análise pode ser repetida.
+- [ ] Salvar cadastro e edição; verificar Snackbar curta sem botão, desaparecimento automático e texto sem cortes.
+- [ ] Excluir um medicamento; conferir título verde, cartão branco arredondado, botão **Cancelar** verde e **Excluir** vermelho. Cancelar deve manter o registro; confirmar deve excluí-lo.
 - [ ] Conferir no detalhe `texto_ocr` e horário `leitura_em` após salvar.
 - [ ] Com internet desligada, cadastrar e editar localmente; confirmar status pendente e persistência após reabrir.
 - [ ] Restaurar internet; sincronizar e conferir o mesmo `sync_id` no Supabase, sem duplicação.
@@ -53,4 +57,4 @@ O `adb` não conseguiu iniciar o daemon e nenhum aparelho foi detectado nesta re
 
 ## Configuração manual pendente
 
-- [ ] Fazer todos os testes físicos acima. Não marcar OCR, persistência SQLite ou sincronização real como aprovados antes dessas verificações.
+- [ ] Fazer todos os testes físicos acima. Não marcar OCR, consentimento Gemini ou apresentação visual como aprovados antes dessas verificações.

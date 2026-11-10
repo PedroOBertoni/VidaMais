@@ -2,7 +2,7 @@
 
 ## Apresentação do 2º bimestre: APK com OCR
 
-Instale o APK atualizado, que abre pelo próprio ícone e inclui o leitor de embalagens. O OCR não funciona no Expo Go. Consulte [OCR.md](OCR.md) e [APK.md](APK.md).
+Instale o APK atualizado, que abre pelo próprio ícone e inclui seleção de várias imagens, ML Kit para embalagem/bula e Gemini remoto para validade/lote (com consentimento). O Expo Go não inclui o ML Kit nativo; use a build Android para validar câmera e OCR local. Consulte [OCR.md](OCR.md), [GEMINI_VISION_SETUP.md](GEMINI_VISION_SETUP.md) e [APK.md](APK.md).
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
