@@ -1,8 +1,19 @@
 # Vida+
 
+## Alunos integrantes do trabalho
+
+| Aluno | RA |
+| --- | ---: |
+| Igor Gabriel Carloni Barcelos | 25590 |
+| Eduardo Colombari Elias | 25543 |
+| João Pedro Lourenço Ferreira | 25330 |
+| Pedro de Oliveira Bertoni | 25278 |
+
 Aplicativo multiplataforma para cadastro, organização e acompanhamento da validade de medicamentos, com armazenamento local e sincronização em nuvem utilizando Supabase.
 
 ## Entrega do 2º bimestre
+
+
 
 O cadastro aceita várias imagens da câmera e da galeria na mesma análise. O ML Kit processa embalagem e bula no aparelho; Gemini Vision, pela Edge Function autenticada do Supabase, complementa a leitura de lote, fabricação e validade. Os resultados são aplicados ao formulário, preservando alterações manuais, e o texto original é salvo junto com o medicamento.
 
